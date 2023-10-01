@@ -1,10 +1,12 @@
+/* Common styles */
 * {
   box-sizing: border-box;
   font-family: Montserrat, sans-serif;
-  margin: 0 auto;
+  margin: 0;
   padding: 0;
   scroll-behavior: smooth;
 }
+
 body {
   background-color: white;
   color: black;
@@ -12,11 +14,17 @@ body {
   position: relative;
   width: 100%;
 }
+
 h1 {
   text-align: center;
 }
+
 img {
   height: 100px;
-  width: 100px;
-  margin-left: 2rem;
+  width: 300px;
+}
+@media (max-width: 1326px) {
+  footer h1 {
+    /* margin-left: 35rem; */
+  }
 }

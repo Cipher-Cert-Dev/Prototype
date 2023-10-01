@@ -5,7 +5,7 @@ import Papa from "papaparse";
 import axios from "axios";
 import QRCode from "qrcode.react";
 import styled from "styled-components";
-import { Goerli, useEthers } from "@usedapp/core";
+import { useEthers } from "@usedapp/core";
 //
 //user
 import "./App.css";
@@ -21,7 +21,7 @@ function App() {
   const [newStudentId, setNewStudentId] = useState("");
   const [newStudentName, setNewStudentName] = useState("");
   const [message1, setMessage1] = useState("");
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState("Connect-Wallet to Mint the Student");
   const [mbulk, setMbulk] = useState("");
   const [csvResults, setCsvResults] = useState([]);
   const [transactionHash, setTransactionHash] = useState("");
@@ -30,10 +30,17 @@ function App() {
   const contractAddress = CONTRACTADDRESS;
   const contractABI = StudentABI;
   //for connect wallet
-  const { activateBrowserWallet, account } = useEthers();
+  const { activateBrowserWallet, account, deactivate } = useEthers();
   async function connectAndActivate() {
     await connectToEthereum();
     await activateBrowserWallet();
+  }
+  async function disconnectWallet() {
+    try {
+      await deactivate();
+    } catch (error) {
+      console.error("Error disconnecting wallet:", error);
+    }
   }
   async function connectToEthereum() {
     try {
@@ -136,6 +143,7 @@ function App() {
 
   //bulk button
   async function processCSVData() {
+    setMessage("Waiting for Mint");
     try {
       if (contract) {
         for (const student of csvResults) {
@@ -174,10 +182,24 @@ function App() {
   } //
 
   //currently working single upload
+  const data = {
+    newStudentName,
+    newStudentId,
+  };
   async function addStudent() {
+    setMessage("Waiting for Mint");
     try {
       if (contract) {
+        //function call
         const tx = await contract.mintStudent(newStudentName, newStudentId);
+        axios
+          .post("/push/students", data)
+          .then((response) => {
+            console.log("Response from server:", response.data);
+          })
+          .catch((error) => {
+            console.error("Error:", error);
+          });
         const receipt = await tx.wait();
         setMessage("Student minted successfully.");
         //api
@@ -211,23 +233,30 @@ function App() {
 
   return (
     <div className="App">
-      <footer>
+      <footer
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
         <img src={iconImage} alt="Icon" />
+        {/* <h1>CIPHER CERT</h1> */}
       </footer>
-      <h1>CIPHER CERT</h1>
-      {!account && (
-        <CButton onClick={() => connectAndActivate()}>Connect-Wallet</CButton>
-      )}
-      {account && (
-        <CButton onClick={() => connectAndActivate()}>
+
+      {account ? (
+        <CButton onClick={() => disconnectWallet()}>
           {account.slice(0, 4)}...{account.slice(account.length - 4)}
         </CButton>
+      ) : (
+        <CButton onClick={() => connectAndActivate()}>Connect Wallet</CButton>
       )}
 
-      <h1>Issuances Portal</h1>
-      <AppContainer>
-        <ContentContainer>
-          <Section>
+      <h1>Issuance Portal</h1>
+      <Container>
+        <Overlay>
+          <Content>
             <h2>Single upload</h2>
             <label>Student ID</label>
             <input
@@ -242,127 +271,57 @@ function App() {
               onChange={(e) => setNewStudentName(e.target.value)}
             />
             <button onClick={addStudent}>Add-Student</button>
-          </Section>
-          <Section>
+          </Content>
+        </Overlay>
+        <Overlay>
+          <Content>
+            <Dis>
+              <div id="qr">
+                {transactionHash && (
+                  <QRCode
+                    value={`https://goerli.etherscan.io/tx/${transactionHash}`}
+                    renderAs="svg"
+                    size={128}
+                  />
+                )}
+              </div>
+            </Dis>
+          </Content>
+        </Overlay>
+        <Overlay>
+          <Content>
             <h2>Bulk upload</h2>
             <input type="file" accept=".csv" onChange={handleFileUpload} />
             <button onClick={processCSVData}>Add-Student</button>
-          </Section>
-          {/* <Section>
-            <div>
-              <h2>Verification</h2>
-              <label>Token ID: </label>
-              <input
-                type="number"
-                value={studentId}
-                onChange={(e) => setStudentId(e.target.value)}
-              />
-              <button onClick={getStudent}>Get-Student</button>
-            </div>
-          </Section> */}
-        </ContentContainer>
-      </AppContainer>
+          </Content>
+        </Overlay>
+      </Container>
       <Dis>
         <p>{message}</p>
-        <br />
-        <p>{message1}</p>
-        <br />
+        <p> {message1}</p>
         <p>{mbulk}</p>
-        <div id="qr">
-          {transactionHash && (
-            <QRCode
-              // value={`https://mumbai.polygonscan.com/tx/${transactionHash}`} //Block Mumbai
-              // value={`https://mumbai.polygonscan.com/nft/${transactionHash}/${tokenadd}`} //NFT
-              value={`https://goerli.etherscan.io/tx/${transactionHash}`} //Block Goerli
-              // value={`https://goerli.etherscan.io/nft/${transactionHash}/${tokenadd}`} //NFT
-              renderAs="svg"
-              size={128}
-            />
-          )}
-        </div>
       </Dis>
+
       <Footer>
         <img src={iconImag} alt="Icon" />
         <h3>Copyright © 2023 - Byte Blitz Tech</h3>
       </Footer>
-      {/* <button onClick={getAllStudents}>Get All Students</button> */}
     </div>
   );
 }
 
 export default App;
-const AppContainer = styled.div`
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  text-align: center;
-  justify-content: space-evenly;
-`;
 
-const ContentContainer = styled.div`
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  max-width: 90%;
-  margin: 0 auto;
-  padding: 1.5rem 0;
-  justify-content: space-evenly;
-`;
-
-const Section = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  margin-bottom: 1rem;
-  margin-right: 5rem;
-  margin-left: 5rem;
-  h2{
-    margin-right:5rem;
-  margin-bottom: 1rem;
-
-  }
-  label{
-    margin-top:1rem;
-    margin-right:7rem;
-    margin-left: 8rem;
-  }
-  input{
-    margin-bottom:1rem;
-    // margin-right:5rem;
-    // margin-left:1rem;
-  }
-  button {
-    // margin-top:1rem;
-    margin-right: 90px;
-    padding: 0.2rem 2rem;
-    width:10rem;
-    height:2rem;
-    cursor: pointer;
-    background-color: black;
-    boder:none;
-    border-radius: 50px;
-    color: rgb(255, 255, 255);
-    font-weight: 500;
-`;
 const CButton = styled.button`
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  bottom: 10rem;
-  padding: 0.7rem 2rem;
-  margin-left: 20rem;
   cursor: pointer;
+  padding: 0.7rem 2rem;
   background-color: grey;
   border-radius: 50px;
   color: rgb(255, 255, 255);
   font-weight: 500;
-  margin-bottom: 1rem;
-  :active {
-    cursor: pointer;
-    color: black;
-    background-color: rgb(255, 255, 255);
-  }
+  margin-left: 7rem;
 `;
+
 const Dis = styled.div`
   display: flex;
   align-items: center;
@@ -373,8 +332,8 @@ const Dis = styled.div`
   position: relative;
   flex-direction: column;
   flex-wrap: nowrap;
-  bottom: 3rem;
 `;
+
 const Footer = styled.footer`
   position: fixed;
   bottom: 0;
@@ -383,8 +342,52 @@ const Footer = styled.footer`
   justify-content: space-between;
   align-items: center;
   z-index: 100;
+  // margin-right: 40rem;
   img {
-    height: 70px;
-    width: 70px;
+    height: 80px;
+    width: 80px;
+    margin-left: 1rem;
+  }
+`;
+//
+const Content = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  flex-direction: column;
+  align-items: flex-start;
+  button {
+    cursor: pointer;
+    margin-top: 1rem;
+    padding: 0.2rem 2rem;
+    background-color: black;
+    border-radius: 50px;
+    color: rgb(255, 255, 255);
+  }
+`;
+
+const Container = styled.div`
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  height: auto;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+  }
+`;
+
+const Overlay = styled.div`
+  width: 20%;
+  padding: 20px;
+  border-radius: 25px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: flex-end;
+  flex-direction: column;
+  align-items: center;
+
+  @media (max-width: 768px) {
+    width: 70%;
+    margin-bottom: 1rem;
   }
 `;
